@@ -19,6 +19,12 @@ export async function POST(req: Request) {
     const service = createServiceClient();
 
     let telegramUser: TelegramUser | null = null;
+    const debug: Record<string, unknown> = {
+      hasBotToken: !!botToken,
+      hasInitData: !!body.initData,
+      dev: !!body.dev,
+      isTelegram: !!body.initData
+    };
 
     // 1) Validate Telegram initData (HMAC) unless in dev mode.
     if (body.dev && !body.initData) {
@@ -26,15 +32,17 @@ export async function POST(req: Request) {
       telegramUser = getDevTelegramUser();
     } else if (botToken) {
       const parsed = validateInitData(body.initData ?? "", botToken);
+      debug.validated = !!parsed;
+      debug.hasHash = !!body.initData?.includes("hash=");
       if (!parsed) {
-        return NextResponse.json({ error: "Invalid initData signature" }, { status: 401 });
+        return NextResponse.json({ error: "Invalid initData signature", debug }, { status: 401 });
       }
       telegramUser = parsed.user ?? null;
       if (!telegramUser) {
-        return NextResponse.json({ error: "No Telegram user in initData" }, { status: 401 });
+        return NextResponse.json({ error: "No Telegram user in initData", debug }, { status: 401 });
       }
     } else {
-      return NextResponse.json({ error: "Bot token not configured" }, { status: 500 });
+      return NextResponse.json({ error: "Bot token not configured", debug }, { status: 500 });
     }
 
     const telegramId = Number(telegramUser.id);
