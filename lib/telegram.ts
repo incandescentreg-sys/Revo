@@ -44,10 +44,10 @@ function parseInitData(initData: string): ParsedInitData {
 
 /**
  * Performs the official Telegram Web App HMAC validation:
- *  - bot_token → SHA256
- *  - secret key = HMAC_SHA256("WebAppData", token_hash)
+ *  - secret_key = HMAC_SHA256(key="WebAppData", msg=bot_token)
  *  - data = all fields except `hash` sorted by key, joined as k=v lines
- *  - result = HMAC_SHA256(secret, data)
+ *    (values used after URL-decoding, per the official examples)
+ *  - result = HMAC_SHA256(key=secret_key, msg=data)
  *  - valid iff result hex === provided hash AND auth_date not too old.
  */
 export function validateInitData(initData: string, botToken: string, maxAgeSec = 86400): ParsedInitData | null {
@@ -56,12 +56,8 @@ export function validateInitData(initData: string, botToken: string, maxAgeSec =
   const parsed = parseInitData(initData);
   if (!parsed.hash) return null;
 
-  const secretKey = crypto
-    .createHash("sha256")
-    .update(botToken)
-    .digest();
-
-  const hmacKey = crypto.createHmac("sha256", secretKey).update("WebAppData").digest();
+  // secret_key = HMAC_SHA256(key = "WebAppData", msg = bot_token)
+  const hmacKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest();
 
   // Rebuild canonical string: sort all pairs except `hash` by key name.
   const params = new URLSearchParams(initData);
